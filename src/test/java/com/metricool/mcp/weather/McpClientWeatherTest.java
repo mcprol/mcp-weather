@@ -41,7 +41,7 @@ public class McpClientWeatherTest {
     static final String JAVA = "/Library/Java/JavaVirtualMachines/temurin-17.jdk/Contents/Home/bin/java";
     static final String MCP_SERVER_JAR_NAME = "target/mcp-weather-server.jar";
     
-    static final Boolean isServerStdio = false;
+    static final Boolean isServerStdio = true;
     
     static final Logger logger = LoggerFactory.getLogger(McpClientWeatherTest.class);
 

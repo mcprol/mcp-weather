@@ -18,7 +18,6 @@ public class McpSseServer {
 
     private static final Logger logger = LoggerFactory.getLogger(McpSseServer.class);
 
-
     public static final String MCP_SERVER_BASE_URI = "http://localhost:8080";
     public static final String MCP_SERVER_MSG_ENDPOINT = "/mcp/message";
     public static final String MCP_SERVER_SSE_ENDPOINT = "/sse";

@@ -1,4 +1,6 @@
 /*
+* Adapted from https://github.com/spring-projects/spring-ai-examples
+* 
 * Copyright 2024 - 2024 the original author or authors.
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,31 +14,35 @@
 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 * See the License for the specific language governing permissions and
 * limitations under the License.
-* 
-* Taken from https://github.com/spring-projects/spring-ai-examples
 */
 package com.metricool.mcp.weather.service;
 
+import java.io.IOException;
+import java.net.URI;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.metricool.mcp.weather.utils.RestClient;
 
-import org.springframework.web.client.RestClient;
-import org.springframework.web.client.RestClientException;
 
 public class WeatherService {
 
     private static final String BASE_URL = "https://api.weather.gov";
+    private static final String[] HEADERS = new String[] {
+        "Accept", "application/geo+json",
+        "User-Agent", "WeatherApiClient/1.0 (your@email.com)"
+    };
 
     private final RestClient restClient;
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     public WeatherService() {
-
-        this.restClient = RestClient.builder().baseUrl(BASE_URL).defaultHeader("Accept", "application/geo+json")
-                .defaultHeader("User-Agent", "WeatherApiClient/1.0 (your@email.com)").build();
+        this.restClient = new RestClient();
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
@@ -85,17 +91,22 @@ public class WeatherService {
      * @param latitude  Latitude
      * @param longitude Longitude
      * @return The forecast for the given location
+     * @throws InterruptedException 
+     * @throws IOException 
      * @throws RestClientException if the request fails
      */
+    public String getWeatherForecastByLocation(double latitude, double longitude) throws IOException, InterruptedException {
+        String endpoint = String.format(Locale.ENGLISH, "/points/%f,%f", latitude, longitude);
+        
+        URI uri = URI.create(BASE_URL + endpoint);
+        String response = restClient.doGet(uri, HEADERS);
 
-    // @Tool(description = "Get weather forecast for a specific latitude/longitude")
-    public String getWeatherForecastByLocation(double latitude, double longitude) {
+        Points points = objectMapper.readValue(response, Points.class);
 
-        Points points = restClient.get().uri("/points/{latitude},{longitude}", latitude, longitude).retrieve()
-                .body(Points.class);
+        uri = URI.create(points.properties().forecast());
+        response = restClient.doGet(uri, HEADERS);
 
-        Forecast forecast = restClient.get().uri(points.properties().forecast()).retrieve().body(Forecast.class);
-
+        Forecast forecast = objectMapper.readValue(response, Forecast.class);
         String forecastText = forecast.properties().periods().stream().map(p -> String.format("""
                 %s:
                 Temperature: %s %s
@@ -111,16 +122,23 @@ public class WeatherService {
         return forecastText;
     }
 
+    
     /**
      * Get alerts for a specific area
      * 
      * @param state Area code. Two-letter US state code (e.g. CA, NY)
      * @return Human readable alert information
+     * @throws InterruptedException 
+     * @throws IOException 
      * @throws RestClientException if the request fails
      */
-    public String getAlerts(String state) {
-        Alert alert = restClient.get().uri("/alerts/active/area/{state}", state).retrieve().body(Alert.class);
+    public String getAlerts(String state) throws IOException, InterruptedException {
+        String endpoint = String.format(Locale.ENGLISH, "/alerts/active/area/%s", state);
 
+        URI uri = URI.create(BASE_URL + endpoint);
+        String response = restClient.doGet(uri, HEADERS);
+
+        Alert alert = objectMapper.readValue(response, Alert.class);
         String alertText = alert.features().stream().map(f -> String.format("""
                 Event: %s
                 Area: %s
@@ -138,7 +156,7 @@ public class WeatherService {
         return alertText;
     }
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws IOException, InterruptedException {
         WeatherService client = new WeatherService();
         System.out.println(client.getWeatherForecastByLocation(47.6062, -122.3321));
         System.out.println(client.getAlerts("NY"));
