@@ -14,10 +14,14 @@ import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.metricool.mcp.weather.server.McpSseServer;
+
 import io.modelcontextprotocol.client.McpClient;
 import io.modelcontextprotocol.client.McpSyncClient;
+import io.modelcontextprotocol.client.transport.HttpClientSseClientTransport;
 import io.modelcontextprotocol.client.transport.ServerParameters;
 import io.modelcontextprotocol.client.transport.StdioClientTransport;
+import io.modelcontextprotocol.spec.McpClientTransport;
 import io.modelcontextprotocol.spec.McpSchema.CallToolRequest;
 import io.modelcontextprotocol.spec.McpSchema.CallToolResult;
 import io.modelcontextprotocol.spec.McpSchema.ClientCapabilities;
@@ -31,39 +35,64 @@ import io.modelcontextprotocol.spec.McpSchema.ListToolsResult;
  * 
  * https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/docs/sdk/java/mcp-client.mdx
  */
-public class McpStdioClientWeatherTest {
+public class McpClientWeatherTest {
 
     // IMPORTANT: Replace with the actual path to your MCP Java Server JAR
     static final String JAVA = "/Library/Java/JavaVirtualMachines/temurin-17.jdk/Contents/Home/bin/java";
-    static final String MCPSERVERJARNAME = "target/mcp-weather-server.jar";
+    static final String MCP_SERVER_JAR_NAME = "target/mcp-weather-server.jar";
     
-    final static Logger logger = LoggerFactory.getLogger(McpStdioClientWeatherTest.class);
+    static final Boolean isServerStdio = false;
+    
+    static final Logger logger = LoggerFactory.getLogger(McpClientWeatherTest.class);
 
     static File serverJar;
-    static StdioClientTransport transport;
+    static McpClientTransport transport;
     static McpSyncClient mcpClient = null;
     
     private static void loadJarFile() throws Exception {
         // Ensure the JAR file exists
-        serverJar = new File(MCPSERVERJARNAME);
+        serverJar = new File(MCP_SERVER_JAR_NAME);
         if (!serverJar.exists()) {
-            throw new Exception("Error: Please build your MCP server and provide the correct path. MCP Server JAR not found at " + MCPSERVERJARNAME);
+            throw new Exception("Error: Please build your MCP server and provide the correct path. MCP Server JAR not found at " + MCP_SERVER_JAR_NAME);
         }
     }
 
     
     /**
      * Configure the STDIO transport
-     * This tells the client how to start and communicate with the server process.
      */
     private static void buildStdioTransport() {
         ServerParameters serverParameters = ServerParameters.builder(JAVA)
                 .arg("-jar")
-                .arg(MCPSERVERJARNAME)
+                .arg(MCP_SERVER_JAR_NAME)
                 .build();
         
         transport = new StdioClientTransport(serverParameters);
     }
+    
+    
+    /**
+     * Configure the SSE transport
+     */
+    private static void buildSseTransport() {
+        transport = HttpClientSseClientTransport.builder(McpSseServer.MCP_SERVER_BASE_URI)
+                .sseEndpoint(McpSseServer.MCP_SERVER_SSE_ENDPOINT)
+                .build();
+    }
+    
+    
+    /**
+     * Configure the transport
+     * This tells the client how to start and communicate with the server process.
+     */
+    private static void buildTransport() {
+        if (isServerStdio == true) {
+            buildStdioTransport();
+        } else {
+            buildSseTransport();
+        }
+    }
+
     
     
     /**
@@ -94,7 +123,7 @@ public class McpStdioClientWeatherTest {
     @BeforeAll
     static void setUpSuite() throws Exception {
         loadJarFile();
-        buildStdioTransport();
+        buildTransport();
         buildClient();
         sendInitialize();
     }
